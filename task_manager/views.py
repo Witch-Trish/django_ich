@@ -1,8 +1,9 @@
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.generics import get_object_or_404
+from rest_framework import status, filters
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.generics import get_object_or_404, ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.decorators import action
 from django.db.models.functions import ExtractWeekDay
 
@@ -18,6 +19,12 @@ from .serializers import TaskModelSerializer
 class TaskViewSet(ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskModelSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+
+    filterset_fields = ['status', 'deadline']
+    search_fields = ['title', 'description']
+    ordering_fields = ['created_at']
+    ordering = ['-created_at']
 
     @action(detail=False, methods=['get'], url_path='stats')
     def stats(self, request):
@@ -37,54 +44,20 @@ class TaskViewSet(ModelViewSet):
         }, status=status.HTTP_200_OK)
 
 
-class SubTaskListCreateView(APIView):
-    def get(self, request, *args, **kwargs):
-        subtasks = SubTask.objects.all().order_by('-created_at')
-        paginator = SubTaskPagination()
-        page = paginator.paginate_queryset(subtasks, request)
-        if page is not None:
-            serializer = SubTaskCreateSerializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
-        serializer = SubTaskCreateSerializer(subtasks, many=True)
-        return paginator.get_paginated_response(serializer.data)
+class SubTaskListCreateView(ListCreateAPIView):
+    queryset = SubTask.objects.all().order_by('-created_at')
+    serializer_class = SubTaskCreateSerializer
+    pagination_class = SubTaskPagination
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
 
-    def post(self, request, *args, **kwargs):
-        serializer = SubTaskCreateSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    filterset_fields = ['status', 'deadline']              # 🔍 Фильтрация
+    search_fields = ['title', 'description']               # 🔍 Поиск
+    ordering_fields = ['created_at']                       # 🔃 Сортировка
+    ordering = ['-created_at']
 
-
-class SubTaskDetailUpdateDeleteView(APIView):
-    def get_object(self, pk):
-        return get_object_or_404(SubTask, pk=pk)
-
-    def get(self, request, pk, *args, **kwargs):
-        subtask = self.get_object(pk)
-        serializer = SubTaskCreateSerializer(subtask)
-        return Response(serializer.data)
-
-    def put(self, request, pk, *args, **kwargs):
-        subtask = self.get_object(pk)
-        serializer = SubTaskCreateSerializer(subtask, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def patch(self, request, pk):
-        subtask = self.get_object(pk)
-        serializer = SubTaskCreateSerializer(subtask, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk):
-        subtask = self.get_object(pk)
-        subtask.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+class SubTaskDetailUpdateDeleteView(RetrieveUpdateDestroyAPIView):
+    queryset = SubTask.objects.all()
+    serializer_class = SubTaskCreateSerializer
 
 
 class TaskListByDay(APIView):
