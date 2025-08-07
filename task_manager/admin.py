@@ -19,7 +19,17 @@ class TaskAdmin(admin.ModelAdmin):
     list_display = ('short_title', 'status', 'deadline', 'created_at', 'updated_at')
     list_filter = ('status', 'created_at', 'updated_at', 'categories')
     search_fields = ('title', 'description')
+    ordering = ('title',)
     filter_horizontal = ('categories',)
+    fieldsets = (
+        ('main info', {
+            'fields': ('title', 'description')
+        }),
+        ('Additional data', {
+            'fields': ('status', 'deadline')
+        }),
+    )
+    list_per_page = 5
     inlines = [SubtaskInline]
 
     def short_title(self, obj):
@@ -37,3 +47,13 @@ class SubTaskAdmin(admin.ModelAdmin):
     list_display = ('title', 'task', 'status', 'deadline', 'created_at')
     list_filter = ('status', 'created_at')
     search_fields = ('title', 'description')
+    ordering = ('title',)
+    fieldsets = (
+        ('main info', {
+        'fields': ('title', 'description', 'task')
+    }),
+        ('Additional data', {
+            'fields': ('status', 'deadline')
+        }),
+    )
+    list_per_page = 5
