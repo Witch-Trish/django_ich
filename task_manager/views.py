@@ -7,13 +7,12 @@ from rest_framework.generics import get_object_or_404, ListCreateAPIView, Retrie
 from rest_framework.decorators import action
 from django.db.models.functions import ExtractWeekDay
 
-from .models import SubTask
-from .serializers import SubTaskCreateSerializer
+from .models import Task, SubTask, Category
+from .serializers import SubTaskCreateSerializer, CategoryCreateSerializer
 from .paginator import SubTaskPagination
 
 from django.utils.timezone import now
 from django.db.models import Count, Q
-from .models import Task
 from .serializers import TaskModelSerializer
 
 class TaskViewSet(ModelViewSet):
@@ -107,3 +106,18 @@ class FilteredSubTaskListView(APIView):
         # Если пагинация не нужна — вернуть все объекты
         serializer = SubTaskCreateSerializer(subtasks, many=True)
         return Response(serializer.data)
+
+
+class CategoryViewSet(ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategoryCreateSerializer
+
+    @action(detail=False, methods=['get'], url_path='stats')
+    def count_tasks(self, request):
+
+        categories = Category.objects.annotate(task_count=Count('tasks'))
+        data = [
+            {"id": cat.id, "name": cat.name, "task_count": cat.task_count}
+            for cat in categories
+        ]
+        return Response(data)

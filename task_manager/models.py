@@ -1,9 +1,24 @@
 from django.db import models
-
+from django.utils import timezone
 
 # Create your models here.
+
+class CategoryManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
+
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    is_deleted = models.BooleanField(default=False, verbose_name='deleted')
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name='deleted at')
+
+    objects = CategoryManager()
+    all_objects = models.Manager()
+
+    def delete(self, using=None, keep_parents=False):
+        self.is_deleted = True
+        self.deleted_at = timezone.now()
+        self.save()
 
     def __str__(self):
         return self.name
