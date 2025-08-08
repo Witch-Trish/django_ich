@@ -6,18 +6,21 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.generics import get_object_or_404, ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.decorators import action
 from django.db.models.functions import ExtractWeekDay
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 
+from .permissions import IsOwnerOrReadOnly
 from .models import Task, SubTask, Category
-from .serializers import SubTaskCreateSerializer, CategoryCreateSerializer
-from .paginator import SubTaskPagination
+from .serializers import SubTaskCreateSerializer, CategoryCreateSerializer, TaskModelSerializer, TaskDetailSerializer
+from .paginator import SubTaskPagination, DefaultCursorPagination
 
 from django.utils.timezone import now
 from django.db.models import Count, Q
-from .serializers import TaskModelSerializer
+
 
 class TaskViewSet(ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskModelSerializer
+    permission_classes = [IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
 
     filterset_fields = ['status', 'deadline']
@@ -25,7 +28,15 @@ class TaskViewSet(ModelViewSet):
     ordering_fields = ['created_at']
     ordering = ['-created_at']
 
-    @action(detail=False, methods=['get'], url_path='stats')
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)  # owner ставится здесь
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return TaskDetailSerializer
+        return TaskModelSerializer
+
+    @action(detail=False, methods=['get'], url_path='stats', permission_classes=[IsAuthenticated])
     def stats(self, request):
         total_tasks = Task.objects.count()
 
@@ -47,19 +58,27 @@ class SubTaskListCreateView(ListCreateAPIView):
     queryset = SubTask.objects.all().order_by('-created_at')
     serializer_class = SubTaskCreateSerializer
     pagination_class = SubTaskPagination
+    permission_classes = [IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
 
-    filterset_fields = ['status', 'deadline']              # 🔍 Фильтрация
-    search_fields = ['title', 'description']               # 🔍 Поиск
-    ordering_fields = ['created_at']                       # 🔃 Сортировка
+    filterset_fields = ['status', 'deadline']
+    search_fields = ['title', 'description']
+    ordering_fields = ['created_at']
     ordering = ['-created_at']
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
 class SubTaskDetailUpdateDeleteView(RetrieveUpdateDestroyAPIView):
     queryset = SubTask.objects.all()
     serializer_class = SubTaskCreateSerializer
+    permission_classes = [IsOwnerOrReadOnly]
 
 
 class TaskListByDay(APIView):
+    permission_classes = [IsAuthenticated]
+    pagination_class = DefaultCursorPagination
+
     def get(self, request, *args, **kwargs):
         day_of_week = request.GET.get('day')
 
@@ -82,10 +101,15 @@ class TaskListByDay(APIView):
         else:
             tasks = Task.objects.all()
 
+        paginator = self.pagination_class
+        page = paginator.paginate_queryset(tasks, request)
         serializer = TaskModelSerializer(tasks, many=True)
-        return Response(serializer.data)
+        return paginator.get_paginated_response(serializer.data)
 
 class FilteredSubTaskListView(APIView):
+    permission_classes = [IsAuthenticated]
+    pagination_class = DefaultCursorPagination
+
     def get(self, request, *args, **kwargs):
         task_title = request.GET.get('task_title')
         status_param = request.GET.get('status')
@@ -103,16 +127,16 @@ class FilteredSubTaskListView(APIView):
             serializer = SubTaskCreateSerializer(page, many=True)
             return paginator.get_paginated_response(serializer.data)
 
-        # Если пагинация не нужна — вернуть все объекты
         serializer = SubTaskCreateSerializer(subtasks, many=True)
-        return Response(serializer.data)
+        return paginator.get_paginated_response(serializer.data)
 
 
 class CategoryViewSet(ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategoryCreateSerializer
+    permission_classes = [IsAuthenticated]
 
-    @action(detail=False, methods=['get'], url_path='stats')
+    @action(detail=False, methods=['get'], url_path='stats', permission_classes=[IsAuthenticated])
     def count_tasks(self, request):
 
         categories = Category.objects.annotate(task_count=Count('tasks'))

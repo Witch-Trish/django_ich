@@ -9,3 +9,4 @@ class SubTaskPagination(PageNumberPagination):
 class DefaultCursorPagination(CursorPagination):
     page_size = 5
     ordering = '-id'
+    page_size_query_param = None # prohibit changing page_size via request (additional security)

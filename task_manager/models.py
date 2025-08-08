@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import User
 
 # Create your models here.
 
@@ -41,6 +42,7 @@ class Task(models.Model):
         ('done', 'Done'),
     ]
 
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tasks', verbose_name='Task Owner')
     title = models.CharField(max_length=255, verbose_name="Task Title", unique=True )
     description = models.TextField(blank=True, verbose_name="Task Description")
     categories = models.ManyToManyField(Category, related_name='tasks', verbose_name="Task Categories")
@@ -65,6 +67,7 @@ class Task(models.Model):
 class SubTask(models.Model):
     STATUS_CHOICES = Task.STATUS_CHOICES  # We use the same statuses
 
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='subtasks', verbose_name="SubTask Owner")
     title = models.CharField(max_length=255, verbose_name="Task Title")
     description = models.TextField(blank=True, verbose_name="Task Description")
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='subtasks', verbose_name="Main Task")
