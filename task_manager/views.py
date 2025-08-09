@@ -29,7 +29,7 @@ class TaskViewSet(ModelViewSet):
     ordering = ['-created_at']
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)  # owner ставится здесь
+        serializer.save(owner=self.request.user)
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
