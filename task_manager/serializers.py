@@ -1,6 +1,8 @@
 from datetime import date
 from rest_framework import serializers
 from .models import Task, SubTask, Category
+from django.contrib.auth.models import User
+import re
 
 
 class TaskModelSerializer(serializers.ModelSerializer):
@@ -76,3 +78,33 @@ class TaskCreateSerializer(serializers.ModelSerializer):
         if value < date.today():
             raise serializers.ValidationError({'deadline': f'Deadline must be greater than {date.today()}'})
         return value
+
+
+class RegisterSerializer(serializers.ModelSerializer):
+    password1 = serializers.CharField(write_only=True, min_length=8)
+    password2 = serializers.CharField(write_only=True, min_length=8)
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'password1', 'password2']
+
+        def validate_email(self, value):
+            if User.objects.filter(email=value).exists():
+                raise serializers.ValidationError({'email': f'User with email {value} already exists'})
+            return value
+
+        def validate_password(self, data):
+            if data['password1'] != data['password2']:
+                raise serializers.ValidationError({'password': f'Passwords must match'})
+            if not re.search(r"[A-Za-z]", data['password1']) or not re.search(r"\d", data['password1']):
+                raise serializers.ValidationError({"password": f'Passwords must contain at least one number'})
+            return data
+
+        def create(self, validated_data):
+            validated_data.pop('password2')
+            user = User(
+                username=validated_data['username'],
+                email=validated_data['email'])
+            user.set_password(validated_data['password1'])
+            user.save()
+            return user

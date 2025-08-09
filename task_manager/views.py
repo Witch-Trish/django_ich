@@ -1,16 +1,20 @@
+from datetime import datetime, timezone
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, filters
+from rest_framework import status, filters, permissions
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.generics import get_object_or_404, ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.generics import get_object_or_404, ListCreateAPIView, RetrieveUpdateDestroyAPIView, CreateAPIView
 from rest_framework.decorators import action
 from django.db.models.functions import ExtractWeekDay
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import authenticate
 
 from .permissions import IsOwnerOrReadOnly
 from .models import Task, SubTask, Category
-from .serializers import SubTaskCreateSerializer, CategoryCreateSerializer, TaskModelSerializer, TaskDetailSerializer
+from .serializers import SubTaskCreateSerializer, CategoryCreateSerializer, TaskModelSerializer, TaskDetailSerializer, \
+                         RegisterSerializer
 from .paginator import SubTaskPagination, DefaultCursorPagination
 
 from django.utils.timezone import now
@@ -145,3 +149,55 @@ class CategoryViewSet(ModelViewSet):
             for cat in categories
         ]
         return Response(data)
+
+
+class RegisterView(CreateAPIView):
+    serializer_class = RegisterSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class LoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        user = authenticate(username=username, password=password)
+
+        if user:
+            refresh = RefreshToken.for_user(user)
+            access_token = refresh.access_token
+
+            access_expiry = datetime.fromtimestamp(access_token['exp'], tz=timezone.utc)
+            refresh_expiry = datetime.fromtimestamp(refresh['exp'], tz=timezone.utc)
+
+            response = Response({"detail": "Successfully logged in."}, status=status.HTTP_200_OK)
+            response.set_cookie(
+                key='access_token',
+                value=str(access_token),
+                httponly=True,
+                secure=False,
+                samesite='Lax',
+                expires=access_expiry,
+            )
+            response.set_cookie(
+                key='refresh_token',
+                value=str(refresh),
+                httponly=True,
+                secure=False,
+                samesite='Lax',
+                expires=refresh_expiry,
+            )
+            return response
+        else:
+            return Response({"detail": "Invalid username or password."}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+class LogoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        response = Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+        response.delete_cookie(key='access_token')
+        response.delete_cookie(key='refresh_token')
+        return response

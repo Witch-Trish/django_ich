@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import TaskViewSet, SubTaskListCreateView, SubTaskDetailUpdateDeleteView, TaskListByDay, \
-    FilteredSubTaskListView, CategoryViewSet
+    FilteredSubTaskListView, CategoryViewSet, RegisterView, LoginView, LogoutView
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -19,5 +19,8 @@ urlpatterns = [
     path('tasks-by-day/', TaskListByDay.as_view(), name='task-list-by-day'),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('register/', RegisterView.as_view(), name='register'),
+    path('login/', LoginView.as_view(), name='login'),
+    path('logout/', LogoutView.as_view(), name='logout'),
 
 ]
