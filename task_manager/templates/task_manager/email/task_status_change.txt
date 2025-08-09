@@ -1,0 +1,10 @@
+Dear {{ task.owner.username }},
+
+Your task "{{ task.title }}" has been {% if is_closed %}closed{% else %}updated to status "{{ new_status }}"{% endif %}.
+
+Details:
+- Title: {{ task.title }}
+- Status: {{ new_status }}
+- Updated at: {{ task.updated_at }}
+
+Best regards, ICH Team
