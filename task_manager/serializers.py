@@ -81,30 +81,34 @@ class TaskCreateSerializer(serializers.ModelSerializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password1 = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(write_only=True, min_length=8)
     password2 = serializers.CharField(write_only=True, min_length=8)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password1', 'password2']
+        fields = ['username', 'email', 'password', 'password2']
 
-        def validate_email(self, value):
-            if User.objects.filter(email=value).exists():
-                raise serializers.ValidationError({'email': f'User with email {value} already exists'})
-            return value
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError({'email': f'User with email {value} already exists'})
+        return value
 
-        def validate_password(self, data):
-            if data['password1'] != data['password2']:
-                raise serializers.ValidationError({'password': f'Passwords must match'})
-            if not re.search(r"[A-Za-z]", data['password1']) or not re.search(r"\d", data['password1']):
-                raise serializers.ValidationError({"password": f'Passwords must contain at least one number'})
-            return data
+    def validate_password(self, value):
+        if not re.search(r"[A-Za-z]", value) or not re.search(r"\d", value):
+            raise serializers.ValidationError({"password": "Password must contain at least one letter and one number"})
+        return value
 
-        def create(self, validated_data):
-            validated_data.pop('password2')
-            user = User(
-                username=validated_data['username'],
-                email=validated_data['email'])
-            user.set_password(validated_data['password1'])
-            user.save()
-            return user
+    def validate(self, data):
+        if data['password'] != data['password2']:
+            raise serializers.ValidationError({'password2': 'Passwords must match'})
+        return data
+
+    def create(self, validated_data):
+        validated_data.pop('password2')  # Удаляем password2, так как оно не нужно для модели
+        user = User.objects.create(
+            username=validated_data['username'],
+            email=validated_data['email']
+        )
+        user.set_password(validated_data['password'])
+        user.save()
+        return user
